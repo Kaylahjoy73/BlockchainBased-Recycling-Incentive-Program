@@ -96,3 +96,67 @@
 (define-read-only (get-token-uri)
   (ok none)
 )
+
+
+(define-map material-categories
+  { category-id: uint }
+  { name: (string-ascii 20),
+    bonus-multiplier: uint }
+)
+
+(define-map material-category-mapping
+  { material-id: uint }
+  { category-id: uint }
+)
+
+(define-public (add-material-category (category-id uint) (name (string-ascii 20)) (multiplier uint))
+  (begin
+    (asserts! (is-eq tx-sender (var-get authorized-verifier)) ERR-NOT-AUTHORIZED)
+    (ok (map-set material-categories 
+      { category-id: category-id }
+      { name: name, bonus-multiplier: multiplier }))
+  )
+)
+
+(define-public (map-material-to-category (material-id uint) (category-id uint))
+  (begin
+    (asserts! (is-eq tx-sender (var-get authorized-verifier)) ERR-NOT-AUTHORIZED)
+    (ok (map-set material-category-mapping
+      { material-id: material-id }
+      { category-id: category-id }))
+  )
+)
+
+
+
+(define-constant STREAK-THRESHOLD u604800)
+(define-constant STREAK-BONUS u10)
+
+(define-map recycler-streaks
+  { recycler: principal }
+  { current-streak: uint,
+    last-activity: uint,
+    total-streak-bonuses: uint }
+)
+
+(define-public (process-streak (recycler principal))
+  (let
+    (
+      (current-time stacks-block-height)
+      (streak-data (default-to { current-streak: u0, last-activity: u0, total-streak-bonuses: u0 }
+        (map-get? recycler-streaks { recycler: recycler })))
+      (time-diff (- current-time (get last-activity streak-data)))
+      (new-streak (if (< time-diff STREAK-THRESHOLD)
+        (+ (get current-streak streak-data) u1)
+        u1))
+      (bonus-amount (* STREAK-BONUS new-streak))
+    )
+    (begin
+      (try! (ft-mint? recycling-token bonus-amount recycler))
+      (ok (map-set recycler-streaks
+        { recycler: recycler }
+        { current-streak: new-streak,
+          last-activity: current-time,
+          total-streak-bonuses: (+ (get total-streak-bonuses streak-data) bonus-amount) })))
+  )
+)
