@@ -24,6 +24,11 @@ epoch = 3.1
 path = 'contracts/escrow.clar'
 clarity_version = 3
 epoch = 3.1
+
+[contracts.impact-calculator]
+path = 'contracts/impact-calculator.clar'
+clarity_version = 3
+epoch = 3.1
 [repl.analysis]
 passes = ['check_checker']
 
